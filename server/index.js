@@ -1,10 +1,19 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Render (và mọi host dạng "1 service = 1 port") chỉ chạy được 1 tiến trình — không có Vite dev
+// server đứng riêng để serve frontend như lúc `npm run dev` nữa, nên server Express này phải tự
+// serve luôn phần tĩnh đã build ở `dist/` (xem cuối file), cùng lúc với các route /api/* bên dưới.
+const distPath = path.join(__dirname, "..", "dist");
 
 const PORT = process.env.PORT || 3001;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash-vl:free";
 
 // 7 nhóm cảm xúc chuẩn (giống face-api.js/FER) — khớp với MOOD_MEMES trong src/lib/memes.ts
 const EMOTIONS = ["neutral", "happy", "sad", "angry", "fearful", "disgusted", "surprised"];
@@ -32,7 +41,11 @@ async function classifyImage({ image, prompt, labels, detail }) {
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
-      max_tokens: 12,
+      // Các model free có vision trên OpenRouter phần lớn là model "reasoning" ngầm (không gắn
+      // mác rõ trong tên, khác gemini-3.8-flash trước đây) — chúng luôn nghĩ ra vài chục token
+      // trước khi nhả từ trả lời. max_tokens thấp (vd. 12) cắt ngang lúc đang nghĩ, content trả
+      // về rỗng. 300 đủ chỗ cho cả phần nghĩ lẫn từ trả lời cuối, đã test thực tế mới ra kết quả.
+      max_tokens: 300,
       temperature: 0,
       messages: [
         {
@@ -115,6 +128,14 @@ app.post("/api/rate", async (req, res) => {
     res.status(err.status || 500).json({ error: err?.message || "Lỗi không xác định." });
   }
 });
+
+// Serve frontend đã build — đặt SAU các route /api/* để không bị catch-all "*" nuốt mất.
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
+} else {
+  console.warn(`[emotion-api] Chưa thấy ${distPath} — chạy "npm run build" trước nếu cần serve frontend.`);
+}
 
 app.listen(PORT, () => {
   console.log(`[emotion-api] Đang chạy tại http://localhost:${PORT}`);

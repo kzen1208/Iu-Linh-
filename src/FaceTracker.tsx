@@ -62,6 +62,7 @@ export default function FaceTracker() {
   const [rating, setRating] = useState(0);
   const [emotion, setEmotion] = useState<Emotion | null>(null);
   const [meme, setMeme] = useState<MemeItem | null>(null);
+  const [emotionError, setEmotionError] = useState<string | null>(null);
   const lastEmotionRef = useRef<Emotion | null>(null);
 
   // kiểm tra tương thích trình duyệt: WebGL + getUserMedia
@@ -230,6 +231,7 @@ export default function FaceTracker() {
     if (!tracking || faceCount === 0) {
       setEmotion(null);
       setMeme(null);
+      setEmotionError(null);
       lastEmotionRef.current = null;
       return;
     }
@@ -249,12 +251,18 @@ export default function FaceTracker() {
         const result = await detectEmotion(frame);
         if (cancelled) return;
         setEmotion(result);
+        setEmotionError(null);
         if (lastEmotionRef.current !== result) {
           lastEmotionRef.current = result;
           setMeme(pickMeme(result));
         }
-      } catch {
-        // bỏ qua lỗi 1 lượt poll (vd. mất mạng) — tự thử lại ở lượt kế tiếp
+      } catch (e: any) {
+        // Lỗi 1 lượt poll (vd. mất mạng, server chưa cấu hình key, hết credit OpenRouter…) —
+        // hiện thông báo thân thiện cho người dùng biết thay vì im lặng trông như tính năng bị
+        // đứng, còn chi tiết lỗi gốc (vd. JSON lỗi từ OpenRouter) chỉ log ra console để debug,
+        // không phơi ra UI. Vẫn tự thử lại ở lượt kế tiếp.
+        console.error("[emotion] lỗi nhận diện cảm xúc:", e);
+        if (!cancelled) setEmotionError("Gương thần đang bận xíu, thử lại sau nha.");
       } finally {
         inFlight = false;
       }
@@ -323,7 +331,7 @@ export default function FaceTracker() {
               onToggle={tracking ? stopWebcam : startWebcam}
               compliment={compliment}
             />
-            <MemePanel meme={meme} emotion={emotion} />
+            <MemePanel meme={meme} emotion={emotion} error={emotionError} />
           </div>
 
           <div style={S.ratingCard}>
