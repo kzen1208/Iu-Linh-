@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Super Bouncer";
+  src: url("/fonts/1FTV-VIP-Super-Bouncer.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.ft-mascot-bubble::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.ft-mascot-bubble--up::before {
+  top: -6px;
+  border-left: 1px solid #f8e3eb;
+  border-top: 1px solid #f8e3eb;
+}
+
+.ft-mascot-bubble--down::before {
+  bottom: -6px;
+  border-right: 1px solid #f8e3eb;
+  border-bottom: 1px solid #f8e3eb;
+}
